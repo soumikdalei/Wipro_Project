@@ -1,0 +1,11 @@
+customer_id,name,age,gender,city,state,risk_profile
+101,Arjun Mehta,32,M,Mumbai,Maharashtra,LOW
+102,Priya Sharma,45,F,Delhi,Delhi,MEDIUM
+103,Rahul Verma,29,M,Bengaluru,Karnataka,HIGH
+104,Anita Rao,51,F,Hyderabad,Telangana,LOW
+105,Sameer Khan,37,M,Pune,Maharashtra,HIGH
+106,Neha Gupta,27,F,Chennai,Tamil Nadu,LOW
+107,Rohan Desai,42,M,Mumbai,Maharashtra,MEDIUM
+108,Pooja Nair,34,F,Kochi,Kerala,HIGH
+109,Aman Patel,30,M,Jaipur,Rajasthan,LOW
+110,Sneha Singh,39,F,Kolkata,West Bengal,HIGH
