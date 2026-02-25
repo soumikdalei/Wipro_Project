@@ -1,0 +1,102 @@
+------------------------------------------------------------
+-- SNOWFLAKE SECURITY SETUP FILE
+-- RBAC + MASKING + TAGGING + OWNERSHIP + AUDIT + (OPTIONAL RLS)
+-- Insurance Analytics Project
+------------------------------------------------------------
+
+------------------------------------------------------------
+-- 1. ROLE-BASED ACCESS CONTROL (RBAC)
+------------------------------------------------------------
+
+-- Create Roles
+CREATE ROLE DATA_ENGINEER;
+CREATE ROLE ANALYST;
+CREATE ROLE VIEW_ONLY;
+
+-- Grant Privileges to Roles
+GRANT ALL PRIVILEGES ON DATABASE INSURANCE_DB TO ROLE DATA_ENGINEER;
+GRANT ALL PRIVILEGES ON SCHEMA INSURANCE_DB.DWH TO ROLE DATA_ENGINEER;
+
+GRANT USAGE ON DATABASE INSURANCE_DB TO ROLE ANALYST;
+GRANT USAGE ON SCHEMA INSURANCE_DB.DWH TO ROLE ANALYST;
+GRANT SELECT ON ALL TABLES IN SCHEMA INSURANCE_DB.DWH TO ROLE ANALYST;
+
+GRANT USAGE ON DATABASE INSURANCE_DB TO ROLE VIEW_ONLY;
+GRANT USAGE ON SCHEMA INSURANCE_DB.DWH TO ROLE VIEW_ONLY;
+GRANT SELECT ON TABLE INSURANCE_DB.DWH.FACT_CLAIMS TO ROLE VIEW_ONLY;
+
+-- Assign Roles to Users
+GRANT ROLE DATA_ENGINEER TO USER SOUMIK;
+GRANT ROLE ANALYST TO USER WIPRO_REVIEWER;
+GRANT ROLE VIEW_ONLY TO USER INTERN;
+
+------------------------------------------------------------
+-- 2. DATA MASKING POLICIES
+------------------------------------------------------------
+
+-- Create Masking Policy
+CREATE MASKING POLICY MASK_CUSTOMER_NAME 
+AS (val STRING) RETURNS STRING ->
+    CASE
+        WHEN CURRENT_ROLE() IN ('DATA_ENGINEER') THEN val
+        ELSE '* MASKED *'
+    END;
+
+-- Apply Masking Policy to Columns
+ALTER TABLE INSURANCE_DB.DWH.DIM_CUSTOMER
+MODIFY COLUMN NAME 
+SET MASKING POLICY MASK_CUSTOMER_NAME;
+
+------------------------------------------------------------
+-- 3. DATA GOVERNANCE (TAGS + OWNERSHIP + AUDIT)
+------------------------------------------------------------
+
+-- Create PII Tags
+CREATE TAG PII_TAG COMMENT='Contains personal information';
+
+-- Apply Tags to Sensitive Columns
+ALTER TABLE INSURANCE_DB.DWH.DIM_CUSTOMER
+MODIFY COLUMN NAME SET TAG PII_TAG='HIGH';
+
+ALTER TABLE INSURANCE_DB.DWH.DIM_CUSTOMER
+MODIFY COLUMN CITY SET TAG PII_TAG='MEDIUM';
+
+ALTER TABLE INSURANCE_DB.DWH.FACT_CLAIMS
+MODIFY COLUMN CLAIM_AMOUNT SET TAG PII_TAG='FINANCIAL';
+
+-- Assign Ownership to DATA_ENGINEER
+GRANT OWNERSHIP ON ALL TABLES 
+IN SCHEMA INSURANCE_DB.DWH 
+TO ROLE DATA_ENGINEER;
+
+------------------------------------------------------------
+-- 4. OPTIONAL: ROW-LEVEL SECURITY (Region-Based Filtering)
+------------------------------------------------------------
+
+CREATE ROW ACCESS POLICY REGION_POLICY
+AS (region STRING) RETURNS BOOLEAN ->
+    CASE
+        WHEN CURRENT_ROLE() = 'DATA_ENGINEER' THEN TRUE
+        WHEN CURRENT_ROLE() = 'ANALYST_EAST' AND region = 'EAST' THEN TRUE
+        ELSE FALSE
+    END;
+
+-- Apply Row Access Policy
+ALTER TABLE INSURANCE_DB.DWH.FACT_CLAIMS
+ADD ROW ACCESS POLICY REGION_POLICY
+ON (REGION);
+
+------------------------------------------------------------
+-- 5. AUDIT LOGGING
+------------------------------------------------------------
+
+-- Query Access Logs (for reports or monitoring)
+SELECT 
+    QUERY_TEXT,
+    ROLE_NAME,
+    USER_NAME,
+    DIRECT_OBJECTS_ACCESSED,
+    BASE_OBJECTS_ACCESSED,
+    START_TIME
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+ORDER BY START_TIME DESC;
